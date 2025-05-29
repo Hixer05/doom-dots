@@ -12,6 +12,12 @@
 '(org-level-2 :inherit outline-2 :height 1.2)
 '(org-level-1 :inherit outline-1 :height 1.3)
 '(org-document-title :height 2.0 :underline nil))
+(custom-set-faces!
+ '(whitespace-space ((nil (:background nil :foreground nil))))
+ '(whitespace-tab ((nil (:background nil :foreground nil))))
+ '(whitespace-trailing ((nil (:background nil :foreground nil))))
+ '(whitespace-line ((nil (:background nil :foreground nil))))
+ '(whitespace-newline ((nil (:background nil :foreground nil)))))
 (set-frame-parameter nil 'alpha-background 100) ; For current frame
 
 ;; __ LINES __
@@ -63,7 +69,12 @@
         org-format-latex-options (plist-put org-format-latex-options ':scale 1.0)
         org-format-latex-options (plist-put org-format-latex-options ':html-scale 1.0)
         org-startup-with-latex-preview t
-        org-deadline-warning-days 7)
+        org-deadline-warning-days 7
+        org-agenda-start-day "-0d"
+        org-agenda-max-todos 10
+        org-agenda-tags-column 80
+        org-agenda-custom-commands
+        '(("n" "Agenda and all TODOs" ((agenda "") (todo "NEXT" "")))))
         ;; org-agenda-custom-commands '(("e" agenda "esame")))
   (add-to-list 'org-latex-packages-alist '("" "ebproof" t))
   (add-to-list 'org-latex-packages-alist '("" "amssymb" t))
