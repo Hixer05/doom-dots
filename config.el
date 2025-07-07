@@ -4,20 +4,14 @@
 (setq warning-minimum-level :warning)
 (setq warning-minimum-log-level :warning)
 ;; __ THEME __
-(setq current-theme 'doom-gruvbox)
+(setq current-theme 'doom-opera-light) ;; doom-gruvbox
 (setq doom-theme current-theme)
 (custom-theme-set-faces! current-theme
-'(org-level-4 :inherit outline-4 :height 1.1)
-'(org-level-3 :inherit outline-3 :height 1.15)
-'(org-level-2 :inherit outline-2 :height 1.2)
-'(org-level-1 :inherit outline-1 :height 1.3)
-'(org-document-title :height 2.0 :underline nil))
-(custom-set-faces!
- '(whitespace-space ((nil (:background nil :foreground nil))))
- '(whitespace-tab ((nil (:background nil :foreground nil))))
- '(whitespace-trailing ((nil (:background nil :foreground nil))))
- '(whitespace-line ((nil (:background nil :foreground nil))))
- '(whitespace-newline ((nil (:background nil :foreground nil)))))
+  '(org-level-4 :inherit outline-4 :height 1.1)
+  '(org-level-3 :inherit outline-3 :height 1.15)
+  '(org-level-2 :inherit outline-2 :height 1.2)
+  '(org-level-1 :inherit outline-1 :height 1.3)
+  '(org-document-title :height 2.0 :underline nil))
 (set-frame-parameter nil 'alpha-background 100) ; For current frame
 
 ;; __ LINES __
@@ -34,12 +28,36 @@
   (setq writeroom-mode-line t))
 ;; (add-hook! 'writeroom-mode-hook #'doom/reset-font-size)
 
+;; __ GPTEL __
+(use-package! gptel
+  :config
+  ;; Set the default model to gpt-4.1
+  (setq gptel-model 'gpt-4.1
+        ;; Use GitHub Copilot as the backend for GPTel
+        gptel-backend (gptel-make-gh-copilot "Copilot")))
+
+;; __ VTERM __
+(after! vterm
+  ;; Add a hook to vterm-mode to set a custom font face
+  (add-hook 'vterm-mode-hook
+            (lambda ()
+              ;; Make buffer-face-mode-face local and set it to 'doom-font
+              (set (make-local-variable 'buffer-face-mode-face) 'doom-font)
+              ;; Enable buffer-face-mode for the current buffer
+              (buffer-face-mode t))))
+
 ;; __ EVIL __
 (after! evil
   (setq evil-want-minibuffer :true)
   (map! :leader
         "w n" #'evil-window-vnew
         "w N" #'evil-window-new))
+
+;; __ PROJECTILE __
+(after! projectile
+  (map! :leader
+        "p o" #'projectile-find-other-file))
+
 ;; __ ORG __
 (setq org-directory "~/org/")
 (setq org-default-notes-file "refile.org")
@@ -47,19 +65,6 @@
 (setq +org-capture-todo-file "refile.org")
 (setq +org-capture-journal-file "refile.org")
 (setq org-archive-location "archive/%s_archive::")
-
-(defun my-org-for-tagged-heading (FUNC TAG)
-  "Execute FUNC for every heading with TAG in the current Org buffer."
-  (when (derived-mode-p 'org-mode)
-    (save-excursion
-      (goto-char (point-min))
-      (while (re-search-forward org-heading-regexp nil t)
-        (let ((tags (org-get-tags)))
-          (when (and tags (member TAG tags))
-            (funcall FUNC)))))))
-
-(defun my-org-autocollapse ()
-  (my-org-for-tagged-heading #'org-fold-hide-subtree "fold"))
 
 (after! org
   (setq visual-line-mode t
@@ -70,15 +75,12 @@
         org-format-latex-options (plist-put org-format-latex-options ':html-scale 1.0)
         org-startup-with-latex-preview t
         org-deadline-warning-days 7
-        org-agenda-start-day "-0d"
-        org-agenda-max-todos 10
+        ;; org-agenda-max-todos 10
         org-agenda-tags-column 80
         org-agenda-custom-commands
-        '(("n" "Agenda and all TODOs" ((agenda "") (todo "NEXT" "")))))
-        ;; org-agenda-custom-commands '(("e" agenda "esame")))
+        '(("n" "Agenda and all TODOs" ((agenda "") (todo "STRT" "")(todo "NEXT" "")))))
   (add-to-list 'org-latex-packages-alist '("" "ebproof" t))
   (add-to-list 'org-latex-packages-alist '("" "amssymb" t))
-  (add-to-list 'org-latex-packages-alist '("" "tikz" t))
   (setq org-capture-templates
         '(("n" "Personal notes" entry
            (file+headline +org-capture-notes-file "Refile")
@@ -88,11 +90,7 @@
            "* TODO [#C] %?\n%U\n")
           ("a" "Appuntamento" entry
            (file+headline +org-capture-todo-file "Appuntamenti")
-           "* %?\n%T\n"))))
-
-
-
-(add-hook! 'org-mode-hook :local :append #'my-org-autocollapse)
+           "* %?\n%U\n"))))
 
 ;; __ORG::MODERN__
 (after! org-modern
@@ -103,16 +101,16 @@
 (after! org-roam
   (map! :map org-mode-map
         :leader
-      "m f a" #'org-roam-alias-add
-      "m f t" #'org-roam-tag-add
-      "m t o" #'org-roam-buffer-toggle
-      "m f i" #'org-roam-node-insert)
+        "m f a" #'org-roam-alias-add
+        "m f t" #'org-roam-tag-add
+        "m t o" #'org-roam-buffer-toggle
+        "m f i" #'org-roam-node-insert)
   (setq org-roam-mode-sections
         (list '(org-roam-backlinks-section :unique t)
               '(org-roam-reflinks-section)))
   (org-roam-db-autosync-mode)
   (add-hook! 'org-roam-buffer-postrender-functions
-      (org--latex-preview-region (point-min) (point-max)))
+    (org--latex-preview-region (point-min) (point-max)))
   (setq org-roam-capture-templates '(("d" "default" plain "#+title: ${title}\nContext: %?\nNext:\n"
                                       :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
                                                          "")
@@ -125,19 +123,19 @@
 
 ;; __ ORG::ROAM::UI __
 (use-package! websocket
-    :after org-roam)
+  :after org-roam)
 
 (use-package! org-roam-ui
-    :after org-roam ;; or :after org
-;;         normally we'd recommend hooking orui after org-roam, but since org-roam does not have
-;;         a hookable mode anymore, you're advised to pick something yourself
-;;         if you don't care about startup time, use
-;;  :hook (after-init . org-roam-ui-mode)
-    :config
-    (setq org-roam-ui-sync-theme t
-          org-roam-ui-follow t
-          org-roam-ui-update-on-save t
-          org-roam-ui-open-on-start t))
+  :after org-roam ;; or :after org
+  ;;         normally we'd recommend hooking orui after org-roam, but since org-roam does not have
+  ;;         a hookable mode anymore, you're advised to pick something yourself
+  ;;         if you don't care about startup time, use
+  ;;  :hook (after-init . org-roam-ui-mode)
+  :config
+  (setq org-roam-ui-sync-theme t
+        org-roam-ui-follow t
+        org-roam-ui-update-on-save t
+        org-roam-ui-open-on-start t))
 
 ;; __ ORG::TRANSCLUSION __
 (after! org-transclusion )
@@ -160,7 +158,8 @@
 
 ;; __ FIX JAVA__
 (setq lsp-java-jdt-download-url
-   "https://www.eclipse.org/downloads/download.php?file=/jdtls/milestones/1.46.0/jdt-language-server-1.46.0-202503271314.tar.gz")
+      "https://www.eclipse.org/downloads/download.php?file=/jdtls/milestones/1.48.0/jdt-language-server-1.48.0-202506271502.tar.gz")
+;; "https://www.eclipse.org/downloads/download.php?file=/jdtls/milestones/1.46.0/jdt-language-server-1.46.0-202503271314.tar.gz")
 
 
 ;; __ DOC __

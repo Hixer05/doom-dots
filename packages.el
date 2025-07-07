@@ -8,7 +8,6 @@
 
 ;; To install SOME-PACKAGE from MELPA, ELPA or emacsmirror:
 ;; (package! some-package)
-
 (unpin! org)
 (package! nov)
 (package! pdf-tools)
@@ -16,6 +15,8 @@
 (unpin! org-roam)
 (package! org-roam-ui)
 (package! dash)
+(package! bluetooth)
+(package! gptel :recipe (:nonrecursive t))
 
 ;;
 ;; To install a package directly from a remote git repo, you must specify a
