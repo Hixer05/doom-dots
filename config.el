@@ -118,6 +118,63 @@
 (after! org-modern
   (setq org-modern-star 'replace))
 
+;; __ORG::SPACED__
+(defun my/space-repeat-if-tag-spaced (e)
+  "Resets the header on the TODO states and increases the date
+according to a suggested spaced repetition interval."
+  (let* ((spaced-rep-map '((0 . "++1d")
+                           (1 . "++2d")
+                           (2 . "++7d")
+                           (3 . "++15d")
+                           (4 . "++30d")
+                           (5 . "++60d")
+                           (6 . "++4m")))
+         (spaced-key "SR")
+         (tags (org-get-tags nil t))
+         (spaced-todo-p (member spaced-key tags))
+         (repetition-n (car (cdr spaced-todo-p)))
+         (n+1 (if repetition-n (+ 1 (string-to-number (substring repetition-n (- (length repetition-n) 1) (length repetition-n)))) 0))
+         (spaced-repetition-p (alist-get n+1 spaced-rep-map))
+         (new-repetition-tag (concat "repetition" (number-to-string n+1)))
+         (new-tags (reverse (if repetition-n
+                                (seq-reduce
+                                 (lambda (a x) (if (string-equal x repetition-n) (cons new-repetition-tag a) (cons x a)))
+                                 tags
+                                 '())
+                              (seq-reduce
+                               (lambda (a x) (if (string-equal x spaced-key) (cons new-repetition-tag (cons x a)) (cons x a)))
+                               tags
+                               '())))))
+    (if (and spaced-todo-p spaced-repetition-p)
+        (progn
+          ;; avoid infinitive looping
+          (remove-hook 'org-trigger-hook 'my/space-repeat-if-tag-spaced)
+          ;; reset to previous state
+          (org-call-with-arg 'org-todo 'previousset)
+          ;; schedule to next spaced repetition
+          (org-schedule nil ".")
+          (org-schedule nil (alist-get n+1 spaced-rep-map))
+          ;; rewrite local tags
+          (org-set-tags new-tags)
+          (add-hook 'org-trigger-hook 'my/space-repeat-if-tag-spaced))
+      )))
+
+(after! org
+  (add-hook! 'org-trigger-hook #'my/space-repeat-if-tag-spaced))
+
+(defun my/set-spaced-repetition ()
+  "When called on a heading: 1) append the :SR: tag, 2) set a schedule (++1d)"
+  (interactive)
+  (if (org-current-level) (progn 
+                            (let* ((tags (org-get-tags nil t))
+                                   (sr-tag "SR"))
+                              (if (member sr-tag tags) (message "Already has SR tag.")
+                                (progn (push sr-tag 'tags) ; append SR to tag list
+                                       (push "repetition0" 'tags)
+                                       (org-set-tags tags)
+                                       (message "Added SR tag to heading.")))
+                              (org-schedule nil "++1d")))))
+
 ;; __ ORG::ROAM __
 ;; (defmacro my/roam-find-filter-by-tag (tag &rest filter)
 ;;   (let ((body `(member ,tag (org-roam-node-tags org-roam-node))))
@@ -141,6 +198,7 @@
         "t" #'my/roam-filter-by-tag-ask)
   (setq org-roam-capture-templates
         '(("d" "default" plain "%?" :target
+
            (file+head "notebox/${slug}.org" "Context:") :unnarrowed t)
           ("b" "bibnote" plain "%?" :target
            (file+head "bibbox/${slug}.org" "#+title:${title}\n#+filetags: :bibnote:") :unnarrowed t))
