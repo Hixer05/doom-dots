@@ -1,10 +1,10 @@
 ;;; $DOOMDIR/config.el -*- lexical-binding: t; -*-
-(setq doom-font (font-spec :family "Fira Code" :size 15 :weight 'semi-light)
+(setq doom-font (font-spec :family "Fira Code" :size 16 :weight 'semi-light)
       doom-variable-pitch-font (font-spec :family "Iosevka Aile" :size 15))
 (setq warning-minimum-level :warning)
 (setq warning-minimum-log-level :warning)
 ;; __ THEME __
-(setq current-theme 'doom-opera-light) ;; doom-gruvbox
+(setq current-theme 'doom-gruvbox) ;; doom-opera-light
 (setq doom-theme current-theme)
 (custom-theme-set-faces! current-theme
   '(org-level-4 :inherit outline-4 :height 1.1)
@@ -34,7 +34,12 @@
   ;; Set the default model to gpt-4.1
   (setq gptel-model 'gpt-4.1
         ;; Use GitHub Copilot as the backend for GPTel
-        gptel-backend (gptel-make-gh-copilot "Copilot")))
+        gptel-backend (gptel-make-gh-copilot "Copilot")
+        gptel-default-mode #'org-mode))
+
+;; __ Tramp __
+(after! tramp
+  (setq tramp-connection-timeout 5))
 
 ;; __ VTERM __
 (after! vterm
@@ -66,76 +71,99 @@
 (setq +org-capture-journal-file "refile.org")
 (setq org-archive-location "archive/%s_archive::")
 
+(defun my/org-skip-f ()
+  (org-agenda-skip-entry-if 'todo '("CANX"))
+  (let ((subtree-end (save-excursion (org-end-of-subtree t))))
+    (if (re-search-forward ":ignore:" subtree-end t)
+        subtree-end
+      nil)))
+
 (after! org
   (setq visual-line-mode t
-        org-preview-latex-default-process 'dvisvgm
         org-todo-keywords '((sequence "TODO(t)" "STRT(s)" "NEXT(n)" "WAIT(w)" "|" "DONE(d)" "CANX(c)"))
         org-hide-emphasis-markers t
-        org-format-latex-options (plist-put org-format-latex-options ':scale 1.0)
-        org-format-latex-options (plist-put org-format-latex-options ':html-scale 1.0)
         org-startup-with-latex-preview t
         org-deadline-warning-days 7
-        ;; org-agenda-max-todos 10
         org-agenda-tags-column 80
+        org-agenda-skip-scheduled-if-done t
+        org-agenda-skip-deadline-if-done t
+        org-agenda-todo-ignore-scheduled 'future
         org-agenda-custom-commands
-        '(("n" "Agenda and all TODOs" ((agenda "") (todo "STRT" "")(todo "NEXT" "")))))
-  (add-to-list 'org-latex-packages-alist '("" "ebproof" t))
-  (add-to-list 'org-latex-packages-alist '("" "amssymb" t))
+        '(("n" "Today + STRT/NEXT"
+           ((agenda "" ((org-agenda-skip-function #'my/org-skip-f)
+                        (org-agenda-span 'day)
+                        (org-agenda-start-day nil)))
+            (todo "STRT" "")
+            (todo "NEXT" "")))))
   (setq org-capture-templates
         '(("n" "Personal notes" entry
            (file+headline +org-capture-notes-file "Refile")
            "* %?\n%U\n" :prepend t)
           ("t" "TODO entries" entry
            (file+headline +org-capture-notes-file "Refile")
-           "* TODO [#C] %?\n%U\n")
-          ("a" "Appuntamento" entry
-           (file+headline +org-capture-todo-file "Appuntamenti")
-           "* %?\n%U\n"))))
+           "* TODO %?\n%U\n"))))
+
+;; __ORG::PREVIEW__
+(after! org-latex-preview
+  (setq org-latex-preview-appearance-options (plist-put org-latex-preview-appearance-options ':zoom 1.5)
+        org-latex-preview-appearance-options (plist-put org-latex-preview-appearance-options ':page-width 0.5)
+        org-latex-preview-mode-display-live '(inline block edit-special))
+  (add-to-list 'org-latex-packages-alist '("" "ebproof" t))
+  (add-to-list 'org-latex-packages-alist '("" "amssymb" t))
+  (add-to-list 'org-latex-packages-alist '("" "syntax" t))
+  (add-to-list 'org-latex-packages-alist '("" "tikz" t))
+  (add-to-list 'org-latex-packages-alist '("" "tikz-cd" t)))
 
 ;; __ORG::MODERN__
 (after! org-modern
   (setq org-modern-star 'replace))
 
 ;; __ ORG::ROAM __
+;; (defmacro my/roam-find-filter-by-tag (tag &rest filter)
+;;   (let ((body `(member ,tag (org-roam-node-tags org-roam-node))))
+;;     (if filter
+;;         `(lambda (org-roam-node)(not ,body))
+;;       `(lambda (org-roam-node) ,body))))
+
+(defun my/roam-filter-by-tag-ask (tag)
+  "Find nodes filtered by tag."
+  (interactive
+   (let ((crm-separator "[ 	]*:[ 	]*"))
+     (completing-read-multiple "Tag: " (org-roam-tag-completions))))
+  (org-roam-node-find nil nil (lambda(node) (member tag (org-roam-node-tags node)))))
+
 (setq org-roam-directory (file-truename "~/org/roam"))
 (after! org-roam
-  (map! :map org-mode-map
-        :leader
-        "m f a" #'org-roam-alias-add
-        "m f t" #'org-roam-tag-add
-        "m t o" #'org-roam-buffer-toggle
-        "m f i" #'org-roam-node-insert)
-  (setq org-roam-mode-sections
-        (list '(org-roam-backlinks-section :unique t)
-              '(org-roam-reflinks-section)))
   (org-roam-db-autosync-mode)
-  (add-hook! 'org-roam-buffer-postrender-functions
-    (org--latex-preview-region (point-min) (point-max)))
-  (setq org-roam-capture-templates '(("d" "default" plain "#+title: ${title}\nContext: %?\nNext:\n"
-                                      :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
-                                                         "")
-                                      :unarrowed t))))
+  (map! :map org-roam-mode-map
+        :leader 
+        :prefix ("n r")
+        "t" #'my/roam-filter-by-tag-ask)
+  (setq org-roam-capture-templates
+        '(("d" "default" plain "%?" :target
+           (file+head "notebox/${slug}.org" "Context:") :unnarrowed t)
+          ("b" "bibnote" plain "%?" :target
+           (file+head "bibbox/${slug}.org" "#+title:${title}\n#+filetags: :bibnote:") :unnarrowed t))
+        org-roam-node-display-template "${title}"))
 
-(map! :leader
-      "n o" #'org-roam-node-find
-      "n d" #'org-roam-dailies-capture-today)
-
+;;   (add-hook 'org-roam-buffer-postrender-functions
+;;             (lambda () (org-latex-preview--preview-region 'dvipng (point-min) (point-max)))))
 
 ;; __ ORG::ROAM::UI __
-(use-package! websocket
-  :after org-roam)
+;; (use-package! websocket
+;;   :after org-roam)
 
-(use-package! org-roam-ui
-  :after org-roam ;; or :after org
-  ;;         normally we'd recommend hooking orui after org-roam, but since org-roam does not have
-  ;;         a hookable mode anymore, you're advised to pick something yourself
-  ;;         if you don't care about startup time, use
-  ;;  :hook (after-init . org-roam-ui-mode)
-  :config
-  (setq org-roam-ui-sync-theme t
-        org-roam-ui-follow t
-        org-roam-ui-update-on-save t
-        org-roam-ui-open-on-start t))
+;; (use-package! org-roam-ui
+;;   :after org-roam ;; or :after org
+;;   ;;         normally we'd recommend hooking orui after org-roam, but since org-roam does not have
+;;   ;;         a hookable mode anymore, you're advised to pick something yourself
+;;   ;;         if you don't care about startup time, use
+;;   ;;  :hook (after-init . org-roam-ui-mode)
+;;   :config
+;;   (setq org-roam-ui-sync-theme t
+;;         org-roam-ui-follow t
+;;         org-roam-ui-update-on-save t
+;;         org-roam-ui-open-on-start t))
 
 ;; __ ORG::TRANSCLUSION __
 (after! org-transclusion )
@@ -144,7 +172,7 @@
 (after! popup
   (set-popup-rule! "\\*org-roam\\*"
     :modeline nil
-    ;; :actions '(display-buffer-in-side-window)
+    :actions '(display-buffer-in-side-window)
     :side 'right
     :width 0.33
     :slot 0
@@ -161,6 +189,13 @@
       "https://www.eclipse.org/downloads/download.php?file=/jdtls/milestones/1.48.0/jdt-language-server-1.48.0-202506271502.tar.gz")
 ;; "https://www.eclipse.org/downloads/download.php?file=/jdtls/milestones/1.46.0/jdt-language-server-1.46.0-202503271314.tar.gz")
 
+;; __TREESITTER__
+(after! treesit
+  (add-to-list 'treesit-language-source-alist
+               '(c . ("https://github.com/tree-sitter/tree-sitter-c"))))
+
+;; __UNI__
+(setq python-shell-virtualenv-root "/home/william/.miniconda3/envs/CN/")
 
 ;; __ DOC __
 ;; Place your private configuration here! Remember, you do not need to run 'doom
