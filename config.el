@@ -88,6 +88,7 @@
         org-agenda-skip-scheduled-if-done t
         org-agenda-skip-deadline-if-done t
         org-agenda-todo-ignore-scheduled 'future
+        org-timer-default-timer 25 
         org-agenda-custom-commands
         '(("n" "Today + STRT/NEXT"
            ((agenda "" ((org-agenda-skip-function #'my/org-skip-f)
