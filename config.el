@@ -32,10 +32,10 @@
 (use-package! gptel
   :config
   ;; Set the default model to gpt-4.1
-  (setq gptel-model 'gpt-4.1
-        ;; Use GitHub Copilot as the backend for GPTel
-        gptel-backend (gptel-make-gh-copilot "Copilot")
-        gptel-default-mode #'org-mode))
+  (setq
+   ;; Use GitHub Copilot as the backend for GPTel
+   gptel-backend (gptel-make-gh-copilot "Copilot")
+   gptel-default-mode #'org-mode))
 
 ;; __ Tramp __
 (after! tramp
