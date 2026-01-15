@@ -1,0 +1,405 @@
+#+title: Doom emacs config
+
+* emacs
+** Speed
+Make this file run slightly faster (see [[https://nullprogram.com/blog/2016/12/22/][this blog post]]).
+#+begin_src emacs-lisp
+;;; config.el -*- lexical-binding: t; -*-
+#+end_src
+
+#+begin_src emacs-lisp :tangle packages.el
+;; -*- no-byte-compile: t; -*-
+;;; $DOOMDIR/packages.el
+#+end_src
+
+Make emacs faster.
+#+begin_src emacs-lisp
+(use-package! gcmh
+  :init
+  (setq gcmh-idle-delay 5
+        ; 256MB during idle
+        gcmh-high-cons-threshold (* 256 1024 1024)))
+
+(setq gc-cons-threshold 200000000) ; previous 33554432
+#+end_src
+
+** Basic
+#+begin_src emacs-lisp
+;; credentials
+(setq user-full-name "William Brusa"
+      user-mail-address "william.brusa@studio.unibo.it")
+
+;; autosave and backup
+(setq auto-save-default t
+      make-backup-files t)
+
+(setq warning-minimum-level :warning)
+(setq warning-minimum-log-level :warning)
+#+end_src
+
+* theme & fonts
+#+begin_src emacs-lisp
+(setq doom-theme 'doom-gruvbox
+      doom-gruvbox-dark-variant "medium"
+      doom-gruvbox-padded-modeline nil)
+(progn
+  (defconst my/serif-font "Iosevka Aile")
+  (defconst my/sans-serif-font "Inter")
+  (defconst my/mono-font "Fira Code"))
+
+(setq doom-font (font-spec :family my/mono-font :size 16 :weight 'semi-light)
+      doom-variable-pitch-font (font-spec :family my/serif-font :size 15))
+#+end_src
+
+Make escape characters like =\n= orange when the =gruvbox= theme is used like in neovim.
+#+begin_src emacs-lisp
+(custom-theme-set-faces! 'doom-gruvbox
+  `(font-lock-escape-face :foreground ,(doom-color 'orange)))
+
+(custom-set-faces!
+  `(font-lock-doc-face
+    :foreground ,(face-attribute 'font-lock-comment-face :foreground))
+  `(hexl-address-region :font ,my/mono-font)
+  `(hexl-ascii-region
+    :background ,(doom-color 'bg-alt)
+    :foreground ,(doom-color 'fg-alt)))
+#+end_src
+
+Enable relative line numbers and make their slant normal (not italic).
+#+begin_src emacs-lisp
+;; (setq display-line-numbers-type 'relative)
+(setq display-line-numbers-type 'visual)
+
+(add-hook! 'display-line-numbers-mode-hook
+  (custom-set-faces!
+    '((line-number line-number-current-line)
+      :slant normal)
+    `(line-number-current-line
+      :background ,(face-attribute 'line-number :background)
+      :foreground ,(doom-color 'fg))))
+#+end_src
+
+#+begin_src emacs-lisp
+(setq global-hl-line-modes '(prog-mode dired-mode))
+#+end_src
+
+* :completion
+** corfu
+Disable corfu's auto-popups and preselect the first candidate.
+#+begin_src emacs-lisp
+(after! corfu
+  (setq corfu-preselect 'first
+        +corfu-want-tab-prefer-expand-snippets t))
+#+end_src
+* :ui
+** zen
+Use =doom-variable-pitch-font= in the following modes:
+- =org-mode=
+- =doom-docs-org-mode=
+#+begin_src emacs-lisp
+;; modified from https://discourse.doomemacs.org/t/cant-size-doom-variable-pitch-font/4572/2
+(use-package! mixed-pitch
+  :hook ((org-mode           . mixed-pitch-mode)
+         (org-roam-mode      . mixed-pitch-mode)
+         (doom-docs-org-mode . mixed-pitch-mode))
+  :config
+  (setq mixed-pitch-set-height t
+        variable-pitch-serif-font doom-variable-pitch-font)
+
+  (pushnew! mixed-pitch-fixed-pitch-faces
+            'warning
+            'org-drawer 'org-cite-key 'org-list-dt 'org-hide
+            'corfu-default 'font-latex-math-face)
+
+  (set-face-attribute 'variable-pitch nil :height 1.1)
+
+  (map! :leader :desc "Mixed pitch" "t M" #'mixed-pitch-mode))
+#+end_src
+
+Reduce text indent in =org= buffers caused by =mixed-pitch-mode=.
+#+begin_src emacs-lisp
+;; copied from https://tecosaur.github.io/emacs-config/config.html#reduced-text-indent
+(defadvice! +org-indent--reduced-text-prefixes ()
+  :after #'org-indent--compute-prefixes
+  (setq org-indent--text-line-prefixes
+        (make-vector org-indent--deepest-level nil))
+  (when (> org-indent-indentation-per-level 0)
+    (dotimes (n org-indent--deepest-level)
+      (aset org-indent--text-line-prefixes
+            n
+            (org-add-props
+                (concat (make-string (* n (1- org-indent-indentation-per-level))
+                                     ?\s)
+                        (if (> n 0)
+                             (char-to-string org-indent-boundary-char)
+                          "\u200b"))
+                nil 'face 'org-indent)))))
+#+end_src
+* :editor
+** evil
+Set some =evil= variables and define some keybindings.
+#+begin_src emacs-lisp
+(after! evil
+  (setq evil-want-minibuffer :true)
+  (map! :leader
+        "w n" #'evil-window-vnew
+        "w N" #'evil-window-new))
+#+end_src
+* :tools
+** llm
+#+begin_src emacs-lisp
+(use-package! gptel
+  :config
+  ;; Set the default model to gpt-4.1
+  (setq gptel-model 'gpt-4.1
+        ;; Use GitHub Copilot as the backend for GPTel
+        gptel-backend (gptel-make-gh-copilot "Copilot")
+        gptel-default-mode #'org-mode))
+#+end_src
+** tramp
+#+begin_src emacs-lisp
+(after! tramp
+  (setq tramp-connection-timeout 5))
+#+end_src
+** projectile
+#+begin_src emacs-lisp
+(after! projectile
+  (map! :leader
+        "p o" #'projectile-find-other-file))
+#+end_src
+* :lang
+** Org Mode
+*** Package
+Use tecosaur's fork of =org-mode=, this is necessary for [[#org-latex][org-latex]].
+#+begin_src emacs-lisp :tangle packages.el
+(package! org :recipe
+  (:host nil
+   :repo "https://git.tecosaur.net/mirrors/org-mode.git"
+   :remote "mirror"
+   :fork (:host nil
+          :repo "https://git.tecosaur.net/tec/org-mode.git"
+          :branch "dev"
+          :remote "tecosaur")
+   :files (:defaults "etc")
+   :build t
+   :pre-build
+   (with-temp-file "org-version.el"
+     (require 'lisp-mnt)
+     (let ((version (with-temp-buffer
+                      (insert-file-contents "lisp/org.el")
+                      (lm-header "version")))
+           (git-version
+            (string-trim
+             (with-temp-buffer
+               (call-process "git" nil t nil "rev-parse" "--short" "HEAD")
+               (buffer-string)))))
+       (insert
+        (format "(defun org-release () \"The release version of Org.\" %S)\n" version)
+        (format "(defun org-git-version () \"The truncate git commit hash of Org mode.\" %S)\n" git-version)
+        "(provide 'org-version)\n"))))
+  :pin nil)
+
+(unpin! org)
+#+end_src
+*** org-mode
+#+begin_src emacs-lisp
+(setq org-directory "~/org/")
+(setq org-default-notes-file "refile.org")
+(setq +org-capture-notes-file "notes.org")
+(setq +org-capture-todo-file "refile.org")
+(setq +org-capture-journal-file "journal.org")
+(setq org-archive-location ".archive/%s_archive::")
+
+(after! org
+  (custom-theme-set-faces! doom-theme
+    '(org-level-4 :inherit outline-4 :height 1.1)
+    '(org-level-3 :inherit outline-3 :height 1.15)
+    '(org-level-2 :inherit outline-2 :height 1.2)
+    '(org-level-1 :inherit outline-1 :height 1.3)
+    '(org-document-title :height 2.0 :underline nil))
+  (setq visual-line-mode t
+        org-todo-keywords
+        '((sequence "TODO(t)" "STRT(s)" "NEXT(n)" "WAIT(w)" "PROJ(p)" "|" "DONE(d)" "CANX(c)"))
+        org-hide-emphasis-markers t
+        org-startup-with-latex-preview t
+        org-log-done 'time
+        org-capture-templates
+        '(("n" "Personal notes" entry
+           (file +org-capture-notes-file)
+           "* %?\n%U\n")
+          ("t" "TODO entries" entry
+           (file+headline +org-capture-todo-file "Refile")
+           "* TODO %?\n%U\n")
+          ("j" "Journal" entry (file+olp+datetree +org-capture-journal-file)
+           "* %U %?\n%i\n%a" :prepend t)
+          ("p" "Templates for projects")
+          ("pt" "Project-local todo" entry
+           (file+headline +org-capture-project-todo-file "Inbox") "* TODO %?\n%i\n%a"
+           :prepend t)
+          ("pn" "Project-local notes" entry
+           (file+headline +org-capture-project-notes-file "Inbox") "* %U %?\n%i\n%a"
+           :prepend t)
+          ("pc" "Project-local changelog" entry
+           (file+headline +org-capture-project-changelog-file "Unreleased")
+           "* %U %?\n%i\n%a" :prepend t)
+          ("o" "Centralized templates for projects")
+          ("ot" "Project todo" entry #'+org-capture-central-project-todo-file
+           "* TODO %?\n %i\n %a" :heading "Tasks" :prepend nil)
+          ("on" "Project notes" entry #'+org-capture-central-project-notes-file
+           "* %U %?\n %i\n %a" :heading "Notes" :prepend t)
+          ("oc" "Project changelog" entry #'+org-capture-central-project-changelog-file
+           "* %U %?\n %i\n %a" :heading "Changelog" :prepend t))))
+#+end_src
+**** Links
+#+begin_src emacs-lisp
+(defconst my/org-link-colors
+  '(("http"  . blue)
+    ("https" . blue)
+    ("file"  . orange)
+    ("pdf"   . orange)
+    ("id"    . violet))
+  "Alist of Org link prefixes and their Doom theme colours.")
+
+(defun my/org-apply-link-colors ()
+  "Register custom faces for Org link schemes based on `my/org-link-colors'."
+  (dolist (entry my/org-link-colors)
+    (let ((scheme (car entry))
+          (color  (cdr entry)))
+      (org-link-set-parameters
+       scheme
+       :face       `(:foreground ,(doom-color color))
+       :mouse-face `(:foreground ,(doom-color 'bg)
+                     :background ,(doom-color color))))))
+
+(after! org
+  (my/org-apply-link-colors)
+
+  (custom-set-faces!
+    `((org-link)
+      :weight normal
+      :underline nil)))
+#+end_src
+*** org-agenda
+#+begin_src emacs-lisp
+(defun my/org-skip-f ()
+  (org-agenda-skip-entry-if 'todo '("CANX"))
+  (let ((subtree-end (save-excursion (org-end-of-subtree t))))
+    (if (re-search-forward ":ignore:" subtree-end t)
+        subtree-end
+      nil)))
+#+end_src
+
+#+begin_src emacs-lisp
+(after! org
+  (setq org-deadline-warning-days 7
+        org-agenda-skip-scheduled-if-done t
+        org-agenda-skip-deadline-if-done t
+        org-agenda-todo-ignore-scheduled 'future
+        org-agenda-prefix-format " %-18c %?-14t% s"
+        org-agenda-todo-keyword-format "%s"
+        org-agenda-scheduled-leaders '("[S] " "[S] x%3d d.")
+        org-agenda-deadline-leaders '("[D]" "[D] +%3d d." "[D] -%3d d.")
+        org-agenda-custom-commands
+        '(("n" "Today"
+           ((agenda "" ((org-agenda-skip-function #'my/org-skip-f)
+                        (org-agenda-span 'day)
+                        (org-agenda-start-day nil)))
+            (todo "STRT" "")
+            (todo "NEXT" "")
+            (todo "WAIT" ""))))))
+#+end_src
+*** spaced repetition
+#+begin_src emacs-lisp
+(defun my/space-repeat-if-tag-spaced (e)
+  "Resets the header on the TODO states and increases the date
+according to a suggested spaced repetition interval."
+  (let* ((spaced-rep-map '((0 . "++1d")
+                           (1 . "++2d")
+                           (2 . "++3d")
+                           (3 . "++7d")
+                           (4 . "++15d")
+                           (5 . "++30d")
+                           (6 . "++2m")))
+         (spaced-key "SR")
+         (tags (org-get-tags nil t))
+         (spaced-todo-p (member spaced-key tags))
+         (repetition-n (car (cdr spaced-todo-p)))
+         (n+1 (if repetition-n (+ 1 (string-to-number (substring repetition-n (- (length repetition-n) 1) (length repetition-n)))) 0))
+         (spaced-repetition-p (alist-get n+1 spaced-rep-map))
+         (new-repetition-tag (concat "repetition" (number-to-string n+1)))
+         (new-tags (reverse (if repetition-n
+                                (seq-reduce
+                                 (lambda (a x) (if (string-equal x repetition-n) (cons new-repetition-tag a) (cons x a)))
+                                 tags
+                                 '())
+                              (seq-reduce
+                               (lambda (a x) (if (string-equal x spaced-key) (cons new-repetition-tag (cons x a)) (cons x a)))
+                               tags
+                               '())))))
+    (if (and spaced-todo-p spaced-repetition-p)
+        (progn
+          ;; avoid infinitive looping
+          (remove-hook 'org-trigger-hook 'my/space-repeat-if-tag-spaced)
+          ;; reset to previous state
+          (org-call-with-arg 'org-todo 'previousset)
+          ;; schedule to next spaced repetition
+          (org-schedule nil ".")
+          (org-schedule nil (alist-get n+1 spaced-rep-map))
+          ;; rewrite local tags
+          (org-set-tags new-tags)
+          (add-hook 'org-trigger-hook 'my/space-repeat-if-tag-spaced))
+      )))
+
+(after! org
+  (add-hook! 'org-trigger-hook #'my/space-repeat-if-tag-spaced))
+#+end_src
+*** org-roam
+#+begin_src emacs-lisp
+(setq org-roam-directory (file-truename "~/org-roam/"))
+
+(defun my/roam-filter-by-tag-ask (tag)
+  "Find nodes filtered by tag."
+  (interactive
+   (let ((crm-separator "[ 	]*:[ 	]*"))
+     (completing-read-multiple "Tag: " (org-roam-tag-completions))))
+  (org-roam-node-find nil nil (lambda(node) (member tag (org-roam-node-tags node)))))
+
+(after! org-roam
+  (org-roam-db-autosync-mode)
+  (map! :map org-roam-mode-map
+        :leader
+        :prefix ("n r")
+        "t" #'my/roam-filter-by-tag-ask)
+  (setq org-roam-capture-templates
+        '(("d" "default" plain "%?" :target
+           (file+head "notebox/${slug}.org" "Context:") :unnarrowed t)
+          ("b" "bibnote" plain "%?" :target
+           (file+head "bibbox/${slug}.org" "#+title:${title}\n#+filetags: :bibnote:") :unnarrowed t))
+        org-roam-node-display-template "${title}"))
+#+end_src
+*** org-preview
+#+begin_src emacs-lisp
+(after! org-latex-preview
+  (setq org-latex-preview-appearance-options (plist-put org-latex-preview-appearance-options ':zoom 1.5)
+        org-latex-preview-appearance-options (plist-put org-latex-preview-appearance-options ':page-width 0.5)
+        org-latex-preview-mode-display-live '(inline block edit-special))
+  (add-to-list 'org-latex-packages-alist '("" "ebproof" t))
+  (add-to-list 'org-latex-packages-alist '("" "amssymb" t))
+  (add-to-list 'org-latex-packages-alist '("" "syntax" t))
+  (add-to-list 'org-latex-packages-alist '("" "tikz" t))
+  (add-to-list 'org-latex-packages-alist '("" "tikz-cd" t)))
+  #+end_src
+*** org-pomodoro
+#+begin_src emacs-lisp
+(after! org-pomodoro
+  (defconst my/alarm-finished "/usr/share/sounds/ocean/stereo/alarm-clock-elapsed.oga")
+  (defconst my/alarm-start "/usr/share/sounds/ocean/stereo/outcome-success.oga")
+  (setq org-pomodoro-finished-sound my/alarm-finished
+        org-pomodoro-short-break-sound my/alarm-finished
+        org-pomodoro-long-break-sound my/alarm-finished
+        org-pomodoro-start-sound my/alarm-start
+        org-pomodoro-overtime-sound my/alarm-finished
+        org-pomodoro-keep-killed-pomodoro-time t
+        org-pomodoro-start-sound-p t
+        org-pomodoro-manual-break t))
+#+end_src
