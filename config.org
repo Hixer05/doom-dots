@@ -273,6 +273,17 @@ Use tecosaur's fork of =org-mode=, this is necessary for [[#org-latex][org-latex
 (setq org-archive-location ".archive/%s_archive::")
 
 (after! org
+  (defun my/org-inherited-priority (s)
+    (cond
+     ;; Priority cookie in this heading
+     ((string-match org-priority-regexp s)
+               (- 1000 (org-priority-to-value (match-string 2 s))))
+     ;; No priority cookie, but already at highest level
+     ((not (org-up-heading-safe))
+      (- 1000 (or org-default-priority 67)))
+     ;; Look for the parent's priority
+     (t
+      (my/org-inherited-priority (org-get-heading)))))
   (custom-theme-set-faces! doom-theme
     '(org-level-4 :inherit outline-4 :height 1.1)
     '(org-level-3 :inherit outline-3 :height 1.15)
@@ -282,6 +293,10 @@ Use tecosaur's fork of =org-mode=, this is necessary for [[#org-latex][org-latex
   (setq visual-line-mode t
         org-todo-keywords
         '((sequence "TODO(t)" "STRT(s)" "NEXT(n)" "WAIT(w)" "PROJ(p)" "|" "DONE(d)" "CANX(c)"))
+        org-priority-faces '((65 . error) (66 . nerd-icons-yellow) (67 . success) (68 . nerd-icons-cyan) (69 . shadow))
+        org-priority-lowest 69
+        org-default-priority 67
+        org-priority-get-priority-function #'my/org-inherited-priority
         org-hide-emphasis-markers t
         org-startup-with-latex-preview t
         org-log-done 'time
