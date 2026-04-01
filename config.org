@@ -208,6 +208,27 @@ Set some =evil= variables and define some keybindings.
   (map! :leader
         "p o" #'projectile-find-other-file))
 #+end_src
+** lsp
+#+begin_src elisp
+(after! lsp-clangd
+  (setq flycheck-clang-language-standard "c23")
+  (setq lsp-clients-clangd-args
+        '("-j=3"
+          "--background-index"
+          "--clang-tidy"
+          "--completion-style=detailed"
+          "--header-insertion=never"
+          "--header-insertion-decorators=0"))
+  (set-lsp-priority! 'clangd 2))
+(after! lsp
+  (setq lsp-cmake-server-command "neocmakelsp stdio"))
+#+end_src
+
+** flycheck
+#+begin_src elisp
+(after! flycheck
+  (setq flycheck-clang-language-standard "c23"))
+#+end_src
 * :lang
 ** Org Mode
 *** Package
