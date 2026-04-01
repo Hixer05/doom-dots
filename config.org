@@ -162,6 +162,13 @@ Set some =evil= variables and define some keybindings.
 (after! apheleia
   (setq apheleia-remote-algorithm 'local))
 #+end_src
+* :term
+** vterm
+#+begin_src emacs-lisp
+(after! vterm
+  (add-to-list 'vterm-tramp-shells
+               '("distrobox" login-shell)))
+#+end_src
 * :tools
 ** llm
 #+begin_src emacs-lisp
@@ -176,7 +183,20 @@ Set some =evil= variables and define some keybindings.
 ** tramp
 #+begin_src emacs-lisp
 (after! tramp
-  (setq tramp-connection-timeout 5))
+  (setq tramp-connection-timeout 5)
+  (setq tramp-default-user "william")
+  (add-to-list 'tramp-remote-path 'tramp-own-remote-path)
+(add-to-list
+ 'tramp-methods
+ '("distrobox"
+   (tramp-login-program "distrobox")
+   (tramp-login-args (("enter" "-n" "%h" "--") ("env" "TERM=xterm-256color") ("/bin/sh")))
+   (tramp-remote-shell "/bin/sh")
+   (tramp-remote-shell-login ("-l"))
+   (tramp-remote-shell-args ("-c"))
+   ;; (tramp-default-user "william")
+   ;; (tramp-passwordless-login t)
+   )))
 #+end_src
 ** projectile
 #+begin_src emacs-lisp
