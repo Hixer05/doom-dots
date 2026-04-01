@@ -23,6 +23,18 @@ Make emacs faster.
 (setq gc-cons-threshold 200000000) ; previous 33554432
 #+end_src
 
+** reka
+#+begin_src emacs-lisp
+(let ((reka-id "--reka"))
+  (when (member reka-id command-line-args)
+    (message "Loading reka.")
+    (add-to-list 'load-path "~/Scaricati/reka/lisp/" 0)
+    (add-to-list 'load-path "~/Scaricati/reka/target/release/" 0)
+    (require 'reka)
+    (setq reka-intercept-prefixes '("C-x" "C-u" "C-h" "M-x" "s-e"))
+    (reka-enable)
+    (setq command-line-args (delete reka-id command-line-args))))
+#+end_src
 ** Basic
 #+begin_src emacs-lisp
 ;; credentials
