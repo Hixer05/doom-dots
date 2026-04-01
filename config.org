@@ -157,6 +157,11 @@ Set some =evil= variables and define some keybindings.
         "w n" #'evil-window-vnew
         "w N" #'evil-window-new))
 #+end_src
+** format
+#+begin_src emacs-lisp
+(after! apheleia
+  (setq apheleia-remote-algorithm 'local))
+#+end_src
 * :tools
 ** llm
 #+begin_src emacs-lisp
