@@ -180,6 +180,10 @@ Set some =evil= variables and define some keybindings.
         gptel-backend (gptel-make-gh-copilot "Copilot")
         gptel-default-mode #'org-mode))
 #+end_src
+
+#+begin_src emacs-lisp :tangle packages.el
+(package! gptel-agent)
+#+end_src
 ** tramp
 #+begin_src emacs-lisp
 (after! tramp
