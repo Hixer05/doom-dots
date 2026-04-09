@@ -389,44 +389,34 @@ Use tecosaur's fork of =org-mode=, this is necessary for [[#org-latex][org-latex
 #+begin_src emacs-lisp
 (defun my/space-repeat-if-tag-spaced (e)
   "Resets the header on the TODO states and increases the date
-according to a suggested spaced repetition interval."
-  (let* ((spaced-rep-map '((0 . "++1d")
-                           (1 . "++2d")
-                           (2 . "++3d")
-                           (3 . "++7d")
-                           (4 . "++15d")
-                           (5 . "++30d")
-                           (6 . "++2m")))
-         (spaced-key "SR")
+according to a suggested spaced repetition interval.
+Uses a property (SPACED_N) to track repetition count."
+  (let* ((spaced-rep-map '((0 . "++0d")
+                           (1 . "++1d")
+                           (2 . "++2d")
+                           (3 . "++3d")
+                           (4 . "++7d")
+                           (5 . "++15d")
+                           (6 . "++30d")
+                           (7 . "++2m")))
+         (spaced-key "SR") ; still use tag "SR" as marker
          (tags (org-get-tags nil t))
          (spaced-todo-p (member spaced-key tags))
-         (repetition-n (car (cdr spaced-todo-p)))
-         (n+1 (if repetition-n (+ 1 (string-to-number (substring repetition-n (- (length repetition-n) 1) (length repetition-n)))) 0))
-         (spaced-repetition-p (alist-get n+1 spaced-rep-map))
-         (new-repetition-tag (concat "repetition" (number-to-string n+1)))
-         (new-tags (reverse (if repetition-n
-                                (seq-reduce
-                                 (lambda (a x) (if (string-equal x repetition-n) (cons new-repetition-tag a) (cons x a)))
-                                 tags
-                                 '())
-                              (seq-reduce
-                               (lambda (a x) (if (string-equal x spaced-key) (cons new-repetition-tag (cons x a)) (cons x a)))
-                               tags
-                               '())))))
-    (if (and spaced-todo-p spaced-repetition-p)
-        (progn
-          ;; avoid infinitive looping
-          (remove-hook 'org-trigger-hook 'my/space-repeat-if-tag-spaced)
-          ;; reset to previous state
-          (org-call-with-arg 'org-todo 'previousset)
-          ;; schedule to next spaced repetition
-          (org-schedule nil ".")
-          (org-schedule nil (alist-get n+1 spaced-rep-map))
-          ;; rewrite local tags
-          (org-set-tags new-tags)
-          (add-hook 'org-trigger-hook 'my/space-repeat-if-tag-spaced))
-      )))
-
+         (prop-name "SPACED_N")
+         (repetition-n (string-to-number (or (org-entry-get nil prop-name) "0")))
+         (n+1 (1+ repetition-n))
+         (spaced-repetition-p (alist-get n+1 spaced-rep-map)))
+    (when (and spaced-todo-p spaced-repetition-p)
+      ;; avoid infinitive looping
+      (remove-hook 'org-trigger-hook 'my/space-repeat-if-tag-spaced)
+      ;; reset to previous state
+      (org-call-with-arg 'org-todo 'previousset)
+      ;; schedule to next spaced repetition
+      (org-schedule nil ".")
+      (org-schedule nil (alist-get n+1 spaced-rep-map))
+      ;; update repetition property
+      (org-entry-put nil prop-name (number-to-string n+1))
+      (add-hook 'org-trigger-hook 'my/space-repeat-if-tag-spaced))))
 (after! org
   (add-hook! 'org-trigger-hook #'my/space-repeat-if-tag-spaced))
 #+end_src
