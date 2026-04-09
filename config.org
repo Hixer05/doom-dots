@@ -367,6 +367,7 @@ Use tecosaur's fork of =org-mode=, this is necessary for [[#org-latex][org-latex
 #+end_src
 
 #+begin_src emacs-lisp
+(setq org-agenda-files (list org-directory (concat org-directory "uni")))
 (after! org
   (setq org-deadline-warning-days 7
         org-agenda-skip-scheduled-if-done t
